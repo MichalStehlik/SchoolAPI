@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SchoolAPI.Data;
 using SchoolAPI.Models;
+using SchoolAPI.ViewModels;
 
 namespace SchoolAPI.Controllers
 {
@@ -23,9 +24,9 @@ namespace SchoolAPI.Controllers
 
         // GET: api/Classrooms
         [HttpGet]
-        public ActionResult<IEnumerable<Classroom>> GetClassrooms()
+        public async Task<ActionResult<IEnumerable<Classroom>>> GetClassrooms()
         {
-            return Ok(_context.Classrooms.ToListAsync());
+            return await _context.Classrooms.ToListAsync();
         }
 
         // GET: api/Classrooms/5
@@ -118,6 +119,83 @@ namespace SchoolAPI.Controllers
             _context.Entry(classroom).Collection(c => c.Students).Load();
 
             return Ok(classroom.Students);
+        }
+
+        /*[HttpPost("{id}/students/{studentId}")]*/
+        [HttpPost("{id}/students")]
+        public async Task<ActionResult> AddStudentToClass(int id, [FromBody] IdVM student)
+        {
+            var classroom = await _context.Classrooms.FindAsync(id);
+
+            if (classroom == null)
+            {
+                return NotFound("class does not exists");
+            }
+            var st = await _context.Students.FindAsync(student.Id);
+
+            if (st == null)
+            {
+                return NotFound("student does not exists");
+            }
+
+            var stinclass = 
+                await _context.Students.Where(s => s.StudentId == student.Id && s.ClassroomId == id).SingleOrDefaultAsync();
+            if (stinclass == null)
+            {
+                st.ClassroomId = id;
+                await _context.SaveChangesAsync();
+                return Ok(st);
+            }
+            else
+            {
+                return NoContent();
+            }
+        }
+
+        [HttpDelete("{id}/students/{studentId}")]
+        public async Task<ActionResult> RemoveStudentFromClass(int id, int studentId)
+        {
+            var classroom = await _context.Classrooms.FindAsync(id);
+
+            if (classroom == null)
+            {
+                return NotFound("class does not exists");
+            }
+            var st = await _context.Students.FindAsync(studentId);
+
+            if (st == null)
+            {
+                return NotFound("student does not exists");
+            }
+
+            var stinclass =
+                await _context.Students.Where(s => s.StudentId == studentId && s.ClassroomId == id).SingleOrDefaultAsync();
+            if (stinclass == null)
+            {
+                return BadRequest();
+            }
+            else
+            {
+                st.ClassroomId = null;
+                await _context.SaveChangesAsync();
+                return Ok();
+            }
+        }
+
+        [HttpDelete("{id}/students")]
+        public async Task<ActionResult> ClearStudentsFromClass(int id)
+        {
+            var classroom = await _context.Classrooms.FindAsync(id);
+
+            if (classroom == null)
+            {
+                return NotFound("class does not exists");
+            }
+
+            _context.Entry(classroom).Collection(c => c.Students).Load();
+            classroom.Students.Clear();
+            await _context.SaveChangesAsync();
+            return Ok();
         }
     }
 }
